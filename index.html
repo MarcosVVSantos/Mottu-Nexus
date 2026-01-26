@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus — Investigação de Apropriação Indébita</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@0.258.0/dist/lucide.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="global-header">
+    <div class="header-left">
+      <img class="brand-logo" src="logo.png" alt="Mottu logo" />
+      <div class="logo">Nexus</div>
+    </div>
+    <div class="header-right">
+      <button class="btn-discovery">Discovery Manager</button>
+      <div class="header-search">
+        <input id="searchInput" type="search" placeholder="Buscar por placa ou usuarioId..." />
+        <button id="btnSearchHeader" class="btn-search">Buscar</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout-grid">
+    <main class="map-area">
+      <div id="map" class="map-core"></div>
+      <button id="floatInfo" class="float-btn left">Info</button>
+      <button id="floatOcc" class="float-btn right">Ocorrências</button>
+    </main>
+  </div>
+
+  <!-- Drawers -->
+  <aside id="drawer-info" class="drawer left" role="dialog" aria-modal="true" aria-labelledby="drawer-info-title" aria-describedby="drawer-info-desc" tabindex="-1" aria-hidden="true">
+    <div class="drawer-header drawer-header-fixed">
+      <div class="drawer-handle" aria-hidden="true"></div>
+      <div class="drawer-title">
+        <h3 id="drawer-info-title">Informações</h3>
+        <div id="drawer-info-desc" class="drawer-sub">Resumo de investigação</div>
+      </div>
+      <div class="drawer-actions">
+        <button id="drawerShare" class="icon-btn icon-affordance" title="Copiar resumo" aria-label="Copiar resumo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        </button>
+        <button class="drawer-close icon-btn icon-affordance" data-drawer-close aria-label="Fechar painel" title="Fechar painel">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+    <div class="drawer-body scrollable">
+      <div class="card vehicle-header">
+        <div class="vh-left">
+          <div class="vehicle-model">Mottu Sport ESD</div>
+          <div class="vehicle-plate"><span class="badge-plate">ABC-1234</span> <span class="badge-status alert">Bloqueado</span></div>
+        </div>
+        <div class="vh-right">
+          <div class="profile-name">Marcos Vinicio</div>
+          <div class="risk-tag high">Alto Risco</div>
+        </div>
+      </div>
+
+      <div class="card addresses-card">
+        <h4>Endereços Pertinentes</h4>
+        <div class="addr-list">
+          <div class="addr-item"><span class="icon icon-affordance"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></span><div class="addr-main"><strong>Pernoite</strong><div class="addr-text" data-lat="-23.5489" data-lng="-46.6388">Rua Exemplo, 100</div></div><div class="addr-actions"><button class="btn-small btn-copy" title="Copiar endereço"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><button class="btn-small btn-openmap" title="Abrir no Maps"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 7 3 13 6 23 3 23 18 13 21 7 18 1 21 1 6"></polygon><line x1="7" y1="3" x2="7" y2="18"></line></svg></button></div></div>
+          <div class="addr-item"><span class="icon icon-affordance"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"></path><path d="M9 22V12h6v10"></path></svg></span><div class="addr-main"><strong>Cadastro</strong><div class="addr-text">Av. Exemplar, 200</div></div><div class="addr-actions"><button class="btn-small btn-copy" title="Copiar endereço"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><button class="btn-small btn-openmap" title="Abrir no Maps"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 7 3 13 6 23 3 23 18 13 21 7 18 1 21 1 6"></polygon><line x1="7" y1="3" x2="7" y2="18"></line></svg></button></div></div>
+          <div class="addr-item"><span class="icon icon-affordance"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></span><div class="addr-main"><strong>Satélite</strong><div class="addr-text" data-lat="-23.556" data-lng="-46.63">Rua Central, 50</div></div><div class="addr-actions"><button class="btn-small btn-copy" title="Copiar endereço"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button><button class="btn-small btn-openmap" title="Abrir no Maps"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 7 3 13 6 23 3 23 18 13 21 7 18 1 21 1 6"></polygon><line x1="7" y1="3" x2="7" y2="18"></line></svg></button></div></div>
+        </div>
+      </div>
+
+      <div class="card contacts-card">
+        <h4>Contatos (Hierarquia)</h4>
+        <div class="contact-primary contact-item">
+          <div class="contact-left"><strong>Contato de Cadastro</strong><div class="contact-phone"><a href="tel:+551199999999">(11) 99999-9999</a></div></div>
+          <div class="contact-actions"><button class="btn-small btn-whatsapp" title="WhatsApp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button></div>
+        </div>
+        <details class="contact-secondary"><summary>Contatos Alternativos</summary><div class="alt-list"><div>(11) 98888-8888</div><div>(11) 97777-7777</div></div></details>
+      </div>
+
+      <div class="card visits-card">
+        <div class="visits-header"><h4>Indicadores de Campo</h4><div class="visits-badge"><span id="totalVisits">0</span></div></div>
+        <div class="indicators"><div class="muted">Timeline de Insucessos</div></div>
+        <div id="visitTimeline" class="timeline"></div>
+      </div>
+    </div>
+  </aside>
+
+  <aside id="drawer-occ" class="drawer right">
+    <div class="drawer-header">
+      <h3>Ocorrências</h3>
+      <button class="drawer-close" data-drawer-close aria-label="Fechar painel">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="occurrences-header">
+        <div class="tabs">
+          <button class="tab active" data-tab="em-andamento">Em Andamento</button>
+          <button class="tab" data-tab="historico">Histórico</button>
+        </div>
+        <button id="btnNewOccurrenceDrawer" class="btn-add">+ Nova Ocorrência</button>
+      </div>
+
+      <div class="tab-content" id="em-andamento">
+        <div id="emAndamentoList" class="occ-list"></div>
+      </div>
+
+      <div class="tab-content hidden" id="historico">
+        <div id="historyList" class="occ-list"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Modal central de Detalhes de Ocorrência -->
+  <div id="modal-details" class="occ-modal" role="dialog" aria-modal="true" aria-labelledby="modal-details-title" tabindex="-1" aria-hidden="true">
+    <div class="occ-modal-backdrop" data-modal-close></div>
+    <div class="occ-modal-content">
+      <div class="occ-modal-header">
+        <div>
+          <p class="eyebrow">Detalhes da Ocorrência</p>
+          <h2 id="modal-details-title">ABC-1234 • <span id="modal-details-time">08:12</span></h2>
+          <div id="detail-support-display" class="muted">Apoio: sem envio de apoio</div>
+        </div>
+        <div class="occ-modal-actions">
+          <button class="ghost" data-modal-close aria-label="Fechar detalhes">&times;</button>
+        </div>
+      </div>
+      <div class="occ-modal-body">
+        <div class="occ-col occ-col-1">
+          <h4>Status</h4>
+          <div id="detail-telemetry"></div>
+        </div>
+        <div class="occ-col occ-col-2">
+          <h4>Informações Adicionais</h4>
+          <div id="detail-comments"></div>
+        </div>
+        <div class="occ-col occ-col-3">
+          <h4>Questionário</h4>
+          <div id="detail-questions"></div>
+        </div>
+      </div>
+      <div class="occ-modal-footer">
+        <button id="btn-acionar-apoio" class="btn-outline">Acionar apoio</button>
+        <button id="btn-conversa-apoio" class="icon-btn icon-affordance" title="Conversa" aria-label="Abrir conversa com apoio">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        </button>
+        <button class="btn-action" id="detail-save">Salvar alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de criação (mantido para entrada rápida) -->
+  <div id="modal-create" class="side-modal">
+    <div class="modal-header">
+      <div>
+        <p class="eyebrow">Nova ocorrência</p>
+        <h2>Registrar ocorrência</h2>
+      </div>
+      <button class="ghost" data-modal-close>&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Placa</span>
+        <input id="newPlate" type="text" placeholder="ABC-1234" />
+      </label>
+      <label class="field">
+        <span>Descrição</span>
+        <textarea id="newDescription" rows="3" placeholder="Descreva a ocorrência"></textarea>
+      </label>
+      <label class="field">
+        <span>Prioridade</span>
+        <select id="newPriority">
+          <option value="alta">Alta</option>
+          <option value="media">Média</option>
+          <option value="baixa">Baixa</option>
+        </select>
+      </label>
+      <button class="primary" id="btnCreateOccurrence">Salvar ocorrência</button>
+    </div>
+  </div>
+
+    <!-- Mini modal: Acionar Apoio -->
+    <div id="modal-support" class="mini-modal" role="dialog" aria-modal="true" aria-labelledby="modal-support-title" tabindex="-1" aria-hidden="true">
+      <div class="mini-modal-backdrop" data-mini-modal-close></div>
+      <div class="mini-modal-content">
+        <div class="mini-modal-header">
+          <h3 id="modal-support-title">Acionar Apoio</h3>
+        </div>
+        <div class="mini-modal-body">
+          <label class="field">
+            <span>Tipo de Apoio</span>
+            <select id="support-select">
+              <option value="sem envio de apoio">sem envio de apoio</option>
+              <option value="carro interno">carro interno</option>
+              <option value="onsystem">onsystem</option>
+              <option value="selva">selva</option>
+              <option value="ativa">ativa</option>
+              <option value="i2">i2</option>
+            </select>
+          </label>
+        </div>
+        <div class="mini-modal-footer">
+          <button id="support-cancel" class="ghost" data-mini-modal-close>Cancelar</button>
+          <button id="support-confirm" class="primary">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+      <!-- Mini modal: Conversa com Apoio -->
+      <div id="modal-chat" class="mini-modal" role="dialog" aria-modal="true" aria-labelledby="modal-chat-title" tabindex="-1" aria-hidden="true">
+        <div class="mini-modal-backdrop" data-mini-modal-close></div>
+        <div class="mini-modal-content">
+          <div class="mini-modal-header">
+            <h3 id="modal-chat-title">Conversa com Apoio</h3>
+          </div>
+          <div class="mini-modal-body">
+            <div id="chat-log" class="chat-log" style="max-height:220px;overflow:auto;margin-bottom:8px;padding:8px;border:1px solid #eee;border-radius:6px;background:#fff"></div>
+            <label class="field"><span>Mensagem</span><textarea id="chat-input" rows="3" placeholder="Escreva uma mensagem para o apoio"></textarea></label>
+          </div>
+          <div class="mini-modal-footer">
+            <button id="chat-cancel" class="ghost" data-mini-modal-close>Cancelar</button>
+            <button id="chat-send" class="primary">Enviar</button>
+          </div>
+        </div>
+      </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
