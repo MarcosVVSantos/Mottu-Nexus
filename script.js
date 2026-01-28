@@ -178,7 +178,26 @@ function renderRightPanel() {
   emContainer.innerHTML = '';
   histContainer.innerHTML = '';
 
-  const em = occurrences.filter(o => o.status === 'em_andamento');
+  let em = occurrences.filter(o => o.status === 'em_andamento');
+  
+  // Ordenar por prévia: menor tempo primeiro, depois por prioridade
+  em.sort((a, b) => {
+    const aTemPrevia = a.apoio?.previa?.chegadaEstimada;
+    const bTemPrevia = b.apoio?.previa?.chegadaEstimada;
+    
+    // Ambos sem prévia: ordenar por prioridade
+    if (!aTemPrevia && !bTemPrevia) {
+      const prioridadeMap = { alta: 1, media: 2, baixa: 3 };
+      return prioridadeMap[a.priority] - prioridadeMap[b.priority];
+    }
+    
+    // Cards sem prévia vão para o final
+    if (!aTemPrevia) return 1;
+    if (!bTemPrevia) return -1;
+    
+    // Ambos com prévia: menor tempo primeiro (mais urgente)
+    return new Date(aTemPrevia) - new Date(bTemPrevia);
+  });
   // Determine the plate under analysis: prefer `currentPlate`, fallback to the plate shown in the info drawer
   function getAnalysisPlate() {
     if (currentPlate) return currentPlate;
@@ -209,6 +228,51 @@ function renderRightPanel() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M3 12h2M19 12h2M12 3v2M12 19v2"/></svg>
         </button>
       </div>
+      
+      <!-- Seção de Prévia de Tempo -->
+      <div class="card-eta-section" data-has-previa="${o.apoio?.previa ? 'true' : 'false'}" data-occurrence-id="${o.id}">
+        ${o.apoio?.previa ? `
+          <div class="eta-display" data-status="${o.apoio.statusChegada || 'aguardando'}">
+            <div class="eta-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+                <path d="M15 18H9"/>
+                <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
+                <circle cx="17" cy="18" r="2"/>
+                <circle cx="7" cy="18" r="2"/>
+              </svg>
+            </div>
+            <div class="eta-info">
+              <div class="eta-label">Apoio chegando em</div>
+              <div class="eta-countdown" data-target-time="${o.apoio.previa.chegadaEstimada}">
+                <span class="eta-time">--:--:--</span>
+                <span class="eta-updated">calculando...</span>
+              </div>
+              <div class="eta-details">
+                <span class="eta-company">${o.apoio?.tipo ? (o.apoio.tipo === 'onsystem' ? 'OnSystem' : o.apoio.tipo === 'selva' ? 'Selva' : o.apoio.tipo === 'ativa' ? 'Ativa' : o.apoio.tipo === 'i2' ? 'I2' : o.apoio.tipo === 'carro_interno' ? 'Carro Interno' : o.apoio.tipo) : 'Apoio'}</span>
+                <span class="eta-separator">·</span>
+                <span class="eta-original">Prévia: ${o.apoio.previa.tempoMinutos} min</span>
+              </div>
+            </div>
+            <button class="btn-editar-previa" data-occurrence-id="${o.id}" title="Editar prévia" aria-label="Editar prévia">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+              </svg>
+            </button>
+          </div>
+        ` : `
+          <div class="eta-empty">
+            <button class="btn-definir-previa" data-occurrence-id="${o.id}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span>Definir Prévia</span>
+            </button>
+          </div>
+        `}
+      </div>
+      
       <div class="card-body compact">
         <div class="telemetry-row">
           <div class="tele-item"><i data-lucide="battery"></i><span class="tele-label">Bateria</span><div class="tele-val">78%</div></div>
@@ -965,3 +1029,442 @@ function handleWhats(e) {
   if (!phone) return;
   window.open(`https://wa.me/${phone}`, '_blank');
 }
+
+// ========================================
+// SISTEMA DE PRÉVIA - FUNÇÕES PRINCIPAIS
+// ========================================
+
+function formatApoioName(tipo) {
+  const nomes = {
+    'onsystem': 'OnSystem',
+    'selva': 'Selva',
+    'ativa': 'Ativa',
+    'i2': 'I2',
+    'carro_interno': 'Carro Interno'
+  };
+  return nomes[tipo] || tipo;
+}
+
+function openPreviaModal(occurrenceId, isEdit = false) {
+  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
+  
+  if (!occurrence) {
+    console.error('Ocorrência não encontrada:', occurrenceId);
+    return;
+  }
+  
+  // Inicializar apoio se não existir
+  if (!occurrence.apoio) {
+    occurrence.apoio = {
+      tipo: 'sem envio de apoio',
+      acionadoEm: new Date().toISOString(),
+      acionadoPor: getCurrentUser()
+    };
+  }
+  
+  const modalOverlay = document.getElementById('modal-previa-overlay');
+  const modalTitle = document.getElementById('modal-previa-title');
+  const modalPlate = document.getElementById('modal-previa-plate');
+  const apoioName = document.getElementById('modal-previa-apoio');
+  const apoioTime = document.getElementById('modal-previa-apoio-time');
+  const inputTempo = document.getElementById('previa-tempo');
+  
+  if (modalTitle) {
+    modalTitle.textContent = isEdit ? 'Atualizar Prévia de Chegada' : 'Definir Prévia de Chegada';
+  }
+  
+  if (modalPlate) {
+    modalPlate.textContent = occurrence.plate;
+  }
+  
+  if (apoioName) {
+    apoioName.textContent = occurrence.apoio.tipo ? formatApoioName(occurrence.apoio.tipo) : 'Apoio Externo';
+  }
+  
+  if (apoioTime && occurrence.apoio.acionadoEm) {
+    const acionadoEm = new Date(occurrence.apoio.acionadoEm);
+    const diffMin = Math.floor((new Date() - acionadoEm) / 60000);
+    apoioTime.textContent = diffMin > 0 ? `Acionado há ${diffMin} minuto${diffMin !== 1 ? 's' : ''}` : 'Recém acionado';
+  } else if (apoioTime) {
+    apoioTime.textContent = 'Aguardando acionamento';
+  }
+  
+  if (inputTempo) {
+    if (isEdit && occurrence.apoio.previa) {
+      inputTempo.value = occurrence.apoio.previa.tempoMinutos;
+    } else {
+      inputTempo.value = 30;
+    }
+    updatePreviaPreview();
+  }
+  
+  modalOverlay.dataset.occurrenceId = occurrenceId;
+  modalOverlay.classList.add('open');
+  
+  setTimeout(() => inputTempo?.focus(), 300);
+}
+
+function closePreviaModal() {
+  const modalOverlay = document.getElementById('modal-previa-overlay');
+  if (modalOverlay) {
+    modalOverlay.classList.remove('open');
+  }
+  
+  // Limpar observação
+  const obsTextarea = document.getElementById('previa-observacao');
+  if (obsTextarea) obsTextarea.value = '';
+  
+  // Resetar contador
+  const obsCounter = document.getElementById('obs-counter');
+  if (obsCounter) obsCounter.textContent = '0';
+  
+  // Remover active dos atalhos
+  document.querySelectorAll('.btn-shortcut').forEach(btn => {
+    btn.classList.remove('active');
+  });
+}
+
+function updatePreviaPreview() {
+  const inputTempo = document.getElementById('previa-tempo');
+  const previewTime = document.getElementById('preview-eta-time');
+  const previewDate = document.getElementById('preview-eta-date');
+  
+  if (!inputTempo || !previewTime || !previewDate) return;
+  
+  const minutos = parseInt(inputTempo.value) || 0;
+  const chegada = new Date(Date.now() + minutos * 60000);
+  
+  previewTime.textContent = chegada.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  const hoje = new Date().toDateString();
+  const amanha = new Date(Date.now() + 86400000).toDateString();
+  
+  if (chegada.toDateString() === hoje) {
+    previewDate.textContent = 'Hoje';
+  } else if (chegada.toDateString() === amanha) {
+    previewDate.textContent = 'Amanhã';
+  } else {
+    previewDate.textContent = chegada.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short'
+    });
+  }
+}
+
+function salvarPrevia(occurrenceId) {
+  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
+  if (!occurrence) return;
+  
+  const tempoMinutos = parseInt(document.getElementById('previa-tempo').value);
+  const observacao = document.getElementById('previa-observacao').value.trim();
+  
+  if (!tempoMinutos || tempoMinutos < 1 || tempoMinutos > 180) {
+    showToastNotification('Tempo inválido. Use entre 1 e 180 minutos.');
+    return;
+  }
+  
+  const agora = new Date();
+  const chegadaEstimada = new Date(agora.getTime() + tempoMinutos * 60000);
+  
+  const novaPrevia = {
+    tempoMinutos: tempoMinutos,
+    definidaEm: agora.toISOString(),
+    chegadaEstimada: chegadaEstimada.toISOString(),
+    ultimaAtualizacao: agora.toISOString()
+  };
+  
+  if (!occurrence.apoio.previa) {
+    occurrence.apoio.previa = novaPrevia;
+    occurrence.apoio.historicoPrevia = [
+      {
+        tempoMinutos: tempoMinutos,
+        definidaEm: agora.toISOString(),
+        motivo: observacao || 'Prévia inicial'
+      }
+    ];
+  } else {
+    if (!occurrence.apoio.historicoPrevia) {
+      occurrence.apoio.historicoPrevia = [];
+    }
+    occurrence.apoio.historicoPrevia.push({
+      tempoMinutos: tempoMinutos,
+      definidaEm: agora.toISOString(),
+      motivo: observacao || 'Atualização de prévia'
+    });
+    occurrence.apoio.previa = novaPrevia;
+  }
+  
+  occurrence.apoio.statusChegada = 'aguardando';
+  
+  closePreviaModal();
+  renderRightPanel();
+  startPreviaCountdowns();
+  
+  showToastNotification(`Prévia definida: ${tempoMinutos} minutos`);
+}
+
+// ========================================
+// SISTEMA DE COUNTDOWN EM TEMPO REAL
+// ========================================
+
+function formatCountdown(diffMs) {
+  if (diffMs <= 0) {
+    const atrasoMin = Math.abs(Math.floor(diffMs / 60000));
+    return `+${atrasoMin} min`;
+  }
+  
+  const hours = Math.floor(diffMs / 3600000);
+  const minutes = Math.floor((diffMs % 3600000) / 60000);
+  const seconds = Math.floor((diffMs % 60000) / 1000);
+  
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  } else {
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+}
+
+function updateCardPreviaDisplay(occurrenceId, diffMs, status) {
+  const card = document.querySelector(`[data-occurrence-id="${occurrenceId}"]`)?.closest('.occ-card');
+  if (!card) return;
+  
+  const etaDisplay = card.querySelector('.eta-display');
+  const etaTime = card.querySelector('.eta-time');
+  
+  if (!etaDisplay || !etaTime) return;
+  
+  etaDisplay.dataset.status = status;
+  card.dataset.etaStatus = status;
+  
+  const timeString = formatCountdown(diffMs);
+  etaTime.textContent = timeString;
+  
+  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
+  if (occurrence && occurrence.apoio.previa) {
+    const etaUpdated = card.querySelector('.eta-updated');
+    if (etaUpdated) {
+      const definidaEm = new Date(occurrence.apoio.previa.definidaEm);
+      const timeSince = Math.floor((new Date() - definidaEm) / 60000);
+      etaUpdated.textContent = `há ${timeSince} min`;
+    }
+  }
+}
+
+function updateAllPreviaCountdowns() {
+  const agora = new Date();
+  
+  occurrences.forEach(occurrence => {
+    if (!occurrence.apoio || !occurrence.apoio.previa) return;
+    
+    const chegadaEstimada = new Date(occurrence.apoio.previa.chegadaEstimada);
+    const diffMs = chegadaEstimada - agora;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    
+    let novoStatus = 'aguardando';
+    
+    if (diffMs <= 0) {
+      novoStatus = 'atrasado';
+    } else if (diffMinutes <= 5) {
+      novoStatus = 'urgente';
+    } else if (diffMinutes <= 10) {
+      novoStatus = 'proximo';
+    }
+    
+    const statusAnterior = occurrence.apoio.statusAnterior || 'aguardando';
+    
+    if (occurrence.apoio.statusChegada !== novoStatus) {
+      occurrence.apoio.statusChegada = novoStatus;
+      
+      if (novoStatus === 'urgente' && statusAnterior !== 'urgente') {
+        showToastNotification(`Apoio chegando em ${diffMinutes} min - ${occurrence.plate}`);
+      } else if (novoStatus === 'atrasado' && statusAnterior !== 'atrasado') {
+        showToastNotification(`Apoio atrasado - ${occurrence.plate}`);
+      }
+      
+      occurrence.apoio.statusAnterior = novoStatus;
+    }
+    
+    updateCardPreviaDisplay(occurrence.id, diffMs, novoStatus);
+  });
+  
+  reorderCardsByETA();
+}
+
+function startPreviaCountdowns() {
+  if (previaUpdateInterval) {
+    clearInterval(previaUpdateInterval);
+  }
+  
+  previaUpdateInterval = setInterval(() => {
+    updateAllPreviaCountdowns();
+  }, 1000);
+  
+  updateAllPreviaCountdowns();
+}
+
+// ========================================
+// REORDENAÇÃO AUTOMÁTICA
+// ========================================
+
+let lastCardOrder = null;
+
+function reorderCardsByETA() {
+  const container = document.getElementById('emAndamentoList');
+  if (!container) return;
+  
+  const cards = Array.from(container.querySelectorAll('.occ-card'));
+  
+  // Obter IDs na ordem atual
+  const currentOrder = cards.map(card => {
+    const btn = card.querySelector('[data-details], [data-support]');
+    return btn?.dataset.details || btn?.dataset.support;
+  }).filter(Boolean);
+  
+  // Ordenar cards
+  cards.sort((a, b) => {
+    const aBtn = a.querySelector('[data-details], [data-support]');
+    const bBtn = b.querySelector('[data-details], [data-support]');
+    
+    if (!aBtn || !bBtn) return 0;
+    
+    const aId = aBtn.dataset.details || aBtn.dataset.support;
+    const bId = bBtn.dataset.details || bBtn.dataset.support;
+    
+    const aOcc = occurrences.find(occ => occ.id == aId);
+    const bOcc = occurrences.find(occ => occ.id == bId);
+    
+    if (!aOcc?.apoio?.previa && !bOcc?.apoio?.previa) return 0;
+    if (!aOcc?.apoio?.previa) return 1;
+    if (!bOcc?.apoio?.previa) return -1;
+    
+    const aTime = new Date(aOcc.apoio.previa.chegadaEstimada);
+    const bTime = new Date(bOcc.apoio.previa.chegadaEstimada);
+    
+    return aTime - bTime;
+  });
+  
+  // Obter nova ordem após sort
+  const newOrder = cards.map(card => {
+    const btn = card.querySelector('[data-details], [data-support]');
+    return btn?.dataset.details || btn?.dataset.support;
+  }).filter(Boolean);
+  
+  // Verificar se a ordem mudou
+  const orderChanged = !lastCardOrder || 
+    lastCardOrder.length !== newOrder.length ||
+    lastCardOrder.some((id, index) => id !== newOrder[index]);
+  
+  // Só reorganizar o DOM se a ordem realmente mudou
+  if (orderChanged) {
+    cards.forEach(card => container.appendChild(card));
+    lastCardOrder = newOrder;
+  }
+}
+
+// ========================================
+// EVENT LISTENERS DO SISTEMA DE PRÉVIA
+// ========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Botão definir prévia
+  document.addEventListener('click', function(e) {
+    const btnDefinir = e.target.closest('.btn-definir-previa');
+    if (btnDefinir) {
+      const occurrenceId = btnDefinir.dataset.occurrenceId;
+      openPreviaModal(occurrenceId, false);
+      return;
+    }
+    
+    const btnEditar = e.target.closest('.btn-editar-previa');
+    if (btnEditar) {
+      const occurrenceId = btnEditar.dataset.occurrenceId;
+      openPreviaModal(occurrenceId, true);
+      return;
+    }
+  });
+  
+  // Atalhos rápidos
+  document.addEventListener('click', function(e) {
+    const btnShortcut = e.target.closest('.btn-shortcut');
+    if (btnShortcut) {
+      const minutos = parseInt(btnShortcut.dataset.minutes);
+      const inputTempo = document.getElementById('previa-tempo');
+      if (inputTempo) {
+        inputTempo.value = minutos;
+      }
+      
+      document.querySelectorAll('.btn-shortcut').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      btnShortcut.classList.add('active');
+      
+      updatePreviaPreview();
+    }
+  });
+  
+  // Input de tempo change
+  const inputTempo = document.getElementById('previa-tempo');
+  if (inputTempo) {
+    inputTempo.addEventListener('input', updatePreviaPreview);
+  }
+  
+  // Contador de caracteres da observação
+  const obsTextarea = document.getElementById('previa-observacao');
+  const obsCounter = document.getElementById('obs-counter');
+  if (obsTextarea && obsCounter) {
+    obsTextarea.addEventListener('input', function() {
+      obsCounter.textContent = this.value.length;
+    });
+  }
+  
+  // Salvar prévia
+  const formPrevia = document.getElementById('form-previa');
+  if (formPrevia) {
+    formPrevia.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const modalOverlay = document.getElementById('modal-previa-overlay');
+      const occurrenceId = modalOverlay?.dataset.occurrenceId;
+      if (occurrenceId) {
+        salvarPrevia(parseInt(occurrenceId));
+      }
+    });
+  }
+  
+  // Botão cancelar
+  const btnCancelar = document.getElementById('btn-cancelar-previa');
+  if (btnCancelar) {
+    btnCancelar.addEventListener('click', closePreviaModal);
+  }
+  
+  // Fechar modal
+  const modalClose = document.getElementById('modal-previa-close');
+  if (modalClose) {
+    modalClose.addEventListener('click', closePreviaModal);
+  }
+  
+  // Fechar ao clicar no overlay
+  const modalOverlay = document.getElementById('modal-previa-overlay');
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', function(e) {
+      if (e.target === this) {
+        closePreviaModal();
+      }
+    });
+  }
+  
+  // ESC para fechar
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const modalOverlay = document.getElementById('modal-previa-overlay');
+      if (modalOverlay && modalOverlay.classList.contains('open')) {
+        closePreviaModal();
+      }
+    }
+  });
+  
+  // Iniciar countdowns
+  startPreviaCountdowns();
+});

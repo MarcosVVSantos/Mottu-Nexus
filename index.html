@@ -249,6 +249,129 @@
         </div>
       </div>
 
+  <!-- Modal de Definir/Editar Prévia -->
+  <div class="modal-overlay" id="modal-previa-overlay">
+    <div class="mini-modal modal-previa">
+      <!-- Header -->
+      <div class="mini-modal-header">
+        <div class="modal-title-section">
+          <h3 class="modal-title" id="modal-previa-title">Definir Prévia de Chegada</h3>
+          <p class="modal-subtitle">Ocorrência <span id="modal-previa-plate">---</span></p>
+        </div>
+        <button class="ghost" id="modal-previa-close" aria-label="Fechar" title="Fechar" style="width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18"/>
+            <path d="m6 6 12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Body -->
+      <div class="mini-modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <!-- Informação do apoio acionado -->
+        <div class="previa-apoio-info">
+          <div class="apoio-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>
+            </svg>
+          </div>
+          <div class="apoio-details">
+            <span class="apoio-label">Apoio Acionado</span>
+            <span class="apoio-name" id="modal-previa-apoio">---</span>
+            <span class="apoio-time" id="modal-previa-apoio-time">Acionado recentemente</span>
+          </div>
+        </div>
+        
+        <!-- Divisor -->
+        <div class="modal-divider"></div>
+        
+        <!-- Formulário de prévia -->
+        <form id="form-previa">
+          <!-- Input de tempo -->
+          <div class="form-group">
+            <label class="form-label" for="previa-tempo">
+              Tempo estimado de chegada
+            </label>
+            <div class="previa-input-group">
+              <input 
+                type="number" 
+                id="previa-tempo" 
+                class="form-input previa-input-number" 
+                min="1" 
+                max="180" 
+                value="30"
+                placeholder="30"
+                required
+              />
+              <span class="previa-input-suffix">minutos</span>
+            </div>
+            <span class="form-help">
+              Informe o tempo em minutos recebido da empresa de apoio
+            </span>
+          </div>
+          
+          <!-- Atalhos rápidos -->
+          <div class="form-group">
+            <label class="form-label">Atalhos rápidos</label>
+            <div class="previa-shortcuts">
+              <button type="button" class="btn-shortcut" data-minutes="10">10 min</button>
+              <button type="button" class="btn-shortcut" data-minutes="15">15 min</button>
+              <button type="button" class="btn-shortcut" data-minutes="20">20 min</button>
+              <button type="button" class="btn-shortcut" data-minutes="30">30 min</button>
+              <button type="button" class="btn-shortcut" data-minutes="45">45 min</button>
+              <button type="button" class="btn-shortcut" data-minutes="60">1 hora</button>
+            </div>
+          </div>
+          
+          <!-- Observação (opcional) -->
+          <div class="form-group">
+            <label class="form-label" for="previa-observacao">
+              Observação (opcional)
+            </label>
+            <textarea 
+              id="previa-observacao" 
+              class="form-textarea" 
+              rows="3"
+              placeholder="Ex: Trânsito intenso na região, equipe saiu do endereço anterior..."
+              maxlength="200"
+            ></textarea>
+            <span class="form-help">
+              <span id="obs-counter">0</span>/200 caracteres
+            </span>
+          </div>
+          
+          <!-- Preview da prévia -->
+          <div class="previa-preview">
+            <div class="preview-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div class="preview-info">
+              <span class="preview-label">Chegada estimada</span>
+              <span class="preview-time" id="preview-eta-time">--:--</span>
+              <span class="preview-date" id="preview-eta-date">Hoje</span>
+            </div>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Footer -->
+      <div class="mini-modal-footer">
+        <button type="button" class="btn-secondary" id="btn-cancelar-previa">
+          Cancelar
+        </button>
+        <button type="submit" form="form-previa" class="btn-primary" id="btn-salvar-previa">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>Confirmar Prévia</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="script.js"></script>
 </body>

@@ -1175,6 +1175,262 @@ body {
   font-size: 13px;
 }
 
+/* ========================================
+   SEÇÃO DE PRÉVIA NO CARD
+   ======================================== */
+
+.card-eta-section {
+  margin: 12px 0 8px 0;
+  padding: 12px;
+  background: var(--bg-input);
+  border: 2px solid var(--border-primary);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.card-eta-section[data-has-previa="false"]:empty {
+  display: none;
+}
+
+/* Estado vazio (Sem prévia) */
+.eta-empty {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-definir-previa {
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: 2px dashed var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.25s ease;
+}
+
+.btn-definir-previa:hover {
+  background: rgba(0, 217, 95, 0.05);
+  border-color: var(--mottu-green);
+  border-style: solid;
+  color: var(--mottu-green);
+}
+
+.btn-definir-previa svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Display de prévia (Com prévia definida) */
+.eta-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+/* Ícone de status do apoio */
+.eta-icon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+/* Estados visuais por status */
+.eta-display[data-status="aguardando"] .eta-icon {
+  background: rgba(91, 159, 255, 0.15);
+  color: var(--state-info);
+}
+
+.eta-display[data-status="proximo"] .eta-icon {
+  background: rgba(255, 176, 32, 0.15);
+  color: var(--priority-medium);
+  animation: pulse-warning 2s infinite;
+}
+
+.eta-display[data-status="urgente"] .eta-icon {
+  background: rgba(255, 77, 77, 0.15);
+  color: var(--priority-high);
+  animation: pulse-urgent 1.5s infinite;
+}
+
+.eta-display[data-status="chegou"] .eta-icon {
+  background: rgba(0, 217, 95, 0.15);
+  color: var(--mottu-green);
+}
+
+.eta-display[data-status="atrasado"] .eta-icon {
+  background: rgba(255, 77, 77, 0.2);
+  color: var(--state-error);
+  animation: pulse-urgent 1s infinite;
+}
+
+/* Animações de pulso */
+@keyframes pulse-warning {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 176, 32, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 176, 32, 0);
+  }
+}
+
+@keyframes pulse-urgent {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(255, 77, 77, 0);
+    transform: scale(1.05);
+  }
+}
+
+/* Informações da prévia */
+.eta-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eta-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+}
+
+.eta-countdown {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.eta-time {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+
+/* Cores do countdown por urgência */
+.eta-display[data-status="aguardando"] .eta-time {
+  color: var(--state-info);
+}
+
+.eta-display[data-status="proximo"] .eta-time {
+  color: var(--priority-medium);
+}
+
+.eta-display[data-status="urgente"] .eta-time,
+.eta-display[data-status="atrasado"] .eta-time {
+  color: var(--priority-high);
+}
+
+.eta-display[data-status="chegou"] .eta-time {
+  color: var(--mottu-green);
+}
+
+.eta-updated {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.eta-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.eta-company {
+  font-weight: 600;
+  color: var(--mottu-green);
+}
+
+.eta-separator {
+  color: var(--text-tertiary);
+}
+
+.eta-original {
+  color: var(--text-tertiary);
+}
+
+/* Botão de editar prévia */
+.btn-editar-previa {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-editar-previa:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--mottu-green);
+  color: var(--mottu-green);
+}
+
+.btn-editar-previa svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Borda do card por status */
+.occ-card[data-eta-status="proximo"] {
+  border-color: var(--priority-medium);
+  box-shadow: 0 0 0 1px rgba(255, 176, 32, 0.3);
+}
+
+.occ-card[data-eta-status="urgente"],
+.occ-card[data-eta-status="atrasado"] {
+  border-color: var(--priority-high);
+  box-shadow: 0 0 0 2px rgba(255, 77, 77, 0.4);
+}
+
+.occ-card[data-eta-status="chegou"] {
+  border-color: var(--mottu-green);
+  box-shadow: 0 0 0 1px rgba(0, 217, 95, 0.3);
+}
+
+/* Badge de posição urgente */
+.urgency-position-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--priority-high);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 12px rgba(255, 77, 77, 0.6);
+  animation: pulse-urgent 1.5s infinite;
+}
+
 /* Card Actions */
 .card-actions {
   display: flex;
@@ -1440,6 +1696,242 @@ body {
 
 .toast-close svg {
   stroke: currentColor;
+}
+
+/* ========================================
+   MODAL DE PRÉVIA
+   ======================================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal-previa {
+  width: 500px;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-title-section {
+  flex: 1;
+}
+
+.modal-title {
+  margin: 0 0 4px 0;
+}
+
+.modal-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Informação do apoio acionado */
+.previa-apoio-info {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.apoio-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 10px;
+  background: rgba(0, 217, 95, 0.15);
+  color: var(--mottu-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.apoio-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.apoio-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+}
+
+.apoio-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.apoio-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Divisor */
+.modal-divider {
+  height: 1px;
+  background: var(--border-primary);
+  margin: 20px 0;
+}
+
+/* Form groups */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Input de tempo */
+.previa-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.previa-input-number {
+  flex: 1;
+  padding: 16px 80px 16px 20px;
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-input);
+  border: 2px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.previa-input-number:focus {
+  outline: none;
+  border-color: var(--mottu-green);
+  box-shadow: 0 0 0 4px rgba(0, 217, 95, 0.15);
+  background: rgba(0, 217, 95, 0.03);
+}
+
+.previa-input-suffix {
+  position: absolute;
+  right: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+/* Atalhos rápidos */
+.previa-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.btn-shortcut {
+  padding: 10px;
+  background: var(--bg-input);
+  border: 2px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-shortcut:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--mottu-green);
+  color: var(--mottu-green);
+}
+
+.btn-shortcut.active {
+  background: rgba(0, 217, 95, 0.15);
+  border-color: var(--mottu-green);
+  color: var(--mottu-green);
+}
+
+/* Help text */
+.form-help {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Preview da prévia */
+.previa-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(0, 217, 95, 0.1) 0%, rgba(0, 217, 95, 0.05) 100%);
+  border: 2px solid var(--mottu-green);
+  border-radius: 10px;
+  margin-top: 20px;
+}
+
+.preview-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 10px;
+  background: var(--mottu-green);
+  color: var(--text-on-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.preview-time {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mottu-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.preview-date {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 /* Item genérico (usado em vários lugares) */
