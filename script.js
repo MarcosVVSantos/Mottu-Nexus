@@ -1,9 +1,90 @@
 const occurrences = [
-  { id: 1, plate: 'ABC-1234', status: 'em_andamento', priority: 'alta', description: 'Tentativa 1: motorista ausente', time: '08:12', coords: [-23.5489, -46.6388], agentNote: 'Porta trancada.' },
+  { 
+    id: 1, 
+    plate: 'ABC-1234', 
+    status: 'em_andamento', 
+    priority: 'alta', 
+    description: 'Tentativa 1: motorista ausente', 
+    time: '08:12', 
+    coords: [-23.5489, -46.6388], 
+    agentNote: 'Porta trancada.',
+    apoio: {
+      tipo: 'onsystem',
+      acionadoEm: new Date(Date.now() - 600000).toISOString(),
+      acionadoPor: 'Marcos Vinicio',
+      previa: {
+        tempoMinutos: 15,
+        definidaEm: new Date(Date.now() - 300000).toISOString(),
+        chegadaEstimada: new Date(Date.now() + 600000).toISOString(),
+        ultimaAtualizacao: new Date(Date.now() - 300000).toISOString()
+      },
+      statusChegada: 'proximo',
+      historicoPrevia: [
+        {
+          tempoMinutos: 20,
+          definidaEm: new Date(Date.now() - 600000).toISOString(),
+          motivo: 'Prévia inicial'
+        },
+        {
+          tempoMinutos: 15,
+          definidaEm: new Date(Date.now() - 300000).toISOString(),
+          motivo: 'Atualização - trânsito melhorou'
+        }
+      ]
+    }
+  },
   { id: 2, plate: 'ABC-1234', status: 'em_andamento', priority: 'media', description: 'Tentativa 2: local não encontrado', time: '09:05', coords: [-23.5520, -46.6402], agentNote: 'Endereço incorreto.' },
   { id: 3, plate: 'XYZ-9090', status: 'analisada', priority: 'media', description: 'Equipe verificou, sem prova de apropriação', time: '07:40', coords: [-23.5614, -46.6559], agentNote: 'Sem evidências.' },
   { id: 4, plate: 'KLM-7765', status: 'encerrada', priority: 'baixa', description: 'Caso encerrado - veículo recuperado', time: '06:30', coords: [-23.5702, -46.6511], agentNote: 'Recuperada.' }
 ];
+
+// Sistema de Chat - Contadores e Mensagens
+const chatUnreadCounts = new Map(); // Map<occurrenceId, number>
+const chatMessages = new Map(); // Map<occurrenceId, messages[]>
+let activeChatOccId = null; // ID da ocorrência ativa no chat
+
+// Sistema de Prévia - Variáveis Globais
+let previaUpdateInterval = null; // Intervalo para atualizar countdowns
+
+// Inicializar mock data de mensagens
+function initializeChatData() {
+  // Simular mensagens não lidas para demonstração
+  chatUnreadCounts.set(1, 3);
+  chatUnreadCounts.set(2, 0);
+  chatUnreadCounts.set(3, 0);
+  chatUnreadCounts.set(4, 0);
+  
+  // Mock de mensagens para ocorrência 1
+  chatMessages.set(1, [
+    {
+      id: 1,
+      remetente: 'central',
+      nomeRemetente: 'Central de Apoio',
+      timestamp: new Date(Date.now() - 3600000).toISOString(),
+      texto: 'Veículo localizado. Aguardando instruções.',
+      anexos: [],
+      lida: false
+    },
+    {
+      id: 2,
+      remetente: 'analista',
+      nomeRemetente: 'Marcos Vinicio',
+      timestamp: new Date(Date.now() - 3000000).toISOString(),
+      texto: 'Entendido. Há bloqueio ativo no veículo?',
+      anexos: [],
+      lida: true
+    },
+    {
+      id: 3,
+      remetente: 'central',
+      nomeRemetente: 'Central de Apoio',
+      timestamp: new Date(Date.now() - 1800000).toISOString(),
+      texto: 'Sim, bloqueio confirmado. Motorista não responde chamadas.',
+      anexos: [],
+      lida: false
+    }
+  ]);
+}
 
 let map;
 const markers = new Map();
@@ -137,6 +218,13 @@ function renderRightPanel() {
       <div class="card-actions">
         <button class="btn-small btn-outline" data-details="${o.id}" title="Detalhes">Detalhes</button>
         <button class="btn-small btn-support" data-support="${o.id}" title="Solicitar apoio"><i data-lucide="user-plus"></i> Apoio</button>
+        <button class="btn-small btn-chat ${(chatUnreadCounts.get(o.id) || 0) > 0 ? 'has-unread' : ''}" data-chat="${o.id}" title="Conversar com apoio">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+          </svg>
+          Chat
+          <span class="chat-unread-badge" data-count="${chatUnreadCounts.get(o.id) || 0}">${chatUnreadCounts.get(o.id) || 0}</span>
+        </button>
       </div>
     `;
     emContainer.appendChild(div);
@@ -165,6 +253,13 @@ function renderRightPanel() {
       <div class="card-actions">
         <button class="btn-small btn-outline" data-details="${o.id}">Detalhes</button>
         <button class="btn-small btn-support" data-support="${o.id}" title="Solicitar apoio"><i data-lucide="user-plus"></i> Apoio</button>
+        <button class="btn-small btn-chat ${(chatUnreadCounts.get(o.id) || 0) > 0 ? 'has-unread' : ''}" data-chat="${o.id}" title="Conversar com apoio">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+          </svg>
+          Chat
+          <span class="chat-unread-badge" data-count="${chatUnreadCounts.get(o.id) || 0}">${chatUnreadCounts.get(o.id) || 0}</span>
+        </button>
       </div>
     `;
     histContainer.appendChild(div);
@@ -186,6 +281,15 @@ function renderRightPanel() {
     if (occ) {
       detailOpenOcc = occ;
       openSupportModal();
+    }
+  }));
+
+  // wire chat buttons on cards
+  document.querySelectorAll('[data-chat]').forEach(btn => btn.addEventListener('click', (ev) => {
+    const id = Number(btn.dataset.chat);
+    const occ = occurrences.find(x => x.id === id);
+    if (occ) {
+      openChatModalForOccurrence(occ);
     }
   }));
 
@@ -285,7 +389,9 @@ document.addEventListener('click', (e) => {
     openSupportModal();
   }
   if (e.target.matches('#btn-conversa-apoio')) {
-    openChatModal();
+    if (detailOpenOcc) {
+      openChatModalForOccurrence(detailOpenOcc);
+    }
   }
   if (e.target.matches('[data-mini-modal-close]')) {
     const mm = e.target.closest('.mini-modal');
@@ -297,10 +403,139 @@ document.addEventListener('click', (e) => {
 });
 
 // Chat modal controls
+let chatInputListenersAttached = false; // Flag para evitar listeners duplicados
+
 function openChatModal() {
   const m = document.getElementById('modal-chat'); if (!m) return;
   m.classList.add('open'); m.setAttribute('aria-hidden','false');
-  document.getElementById('chat-input')?.focus();
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput && !chatInputListenersAttached) {
+    chatInputListenersAttached = true;
+    
+    // Auto-resize textarea
+    chatInput.addEventListener('input', function() {
+      this.style.height = '44px';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+    
+    // Enter para enviar (Shift+Enter para nova linha)
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('chat-send')?.click();
+      }
+    });
+  }
+  
+  // Focar e resetar altura
+  if (chatInput) {
+    chatInput.style.height = '44px';
+    setTimeout(() => chatInput.focus(), 100);
+  }
+}
+
+// Abrir chat para ocorrência específica
+function openChatModalForOccurrence(occ) {
+  if (!occ) return;
+  
+  activeChatOccId = occ.id;
+  
+  // Atualizar título do modal
+  const modalTitle = document.getElementById('modal-chat-title');
+  if (modalTitle) {
+    modalTitle.textContent = `Chat - ${occ.plate} (#${occ.id})`;
+  }
+  
+  // Carregar mensagens
+  renderChatMessagesForOccurrence(occ.id);
+  
+  // Marcar como lidas
+  markMessagesAsRead(occ.id);
+  
+  // Abrir modal
+  openChatModal();
+}
+
+// Renderizar mensagens do chat
+function renderChatMessagesForOccurrence(occId) {
+  const chatLog = document.getElementById('chat-log');
+  if (!chatLog) return;
+  
+  chatLog.innerHTML = '';
+  
+  const messages = chatMessages.get(occId) || [];
+  
+  if (messages.length === 0) {
+    chatLog.innerHTML = `
+      <div class="chat-empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+        </svg>
+        <p>Nenhuma mensagem ainda</p>
+        <span>Inicie uma conversa com a equipe de apoio</span>
+      </div>
+    `;
+    return;
+  }
+  
+  messages.forEach(msg => {
+    const item = document.createElement('div');
+    item.className = `chat-message ${msg.remetente}`;
+    
+    const initials = msg.remetente === 'central' ? 'CT' : 
+      msg.nomeRemetente.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    
+    const time = new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    
+    item.innerHTML = `
+      <div class="message-avatar ${msg.remetente}">${escapeHtml(initials)}</div>
+      <div class="message-bubble">
+        <div class="message-header">
+          <span class="message-sender">${escapeHtml(msg.nomeRemetente)}</span>
+          <span class="message-time">${escapeHtml(time)}</span>
+        </div>
+        <div class="message-content">${escapeHtml(msg.texto)}</div>
+      </div>
+    `;
+    
+    chatLog.appendChild(item);
+  });
+  
+  setTimeout(() => {
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }, 100);
+}
+
+// Marcar mensagens como lidas
+function markMessagesAsRead(occId) {
+  const messages = chatMessages.get(occId) || [];
+  messages.forEach(msg => {
+    if (msg.remetente === 'central') {
+      msg.lida = true;
+    }
+  });
+  
+  chatUnreadCounts.set(occId, 0);
+  updateChatBadge(occId);
+}
+
+// Atualizar badge de não lidas
+function updateChatBadge(occId) {
+  const unreadCount = chatUnreadCounts.get(occId) || 0;
+  
+  document.querySelectorAll(`[data-chat="${occId}"]`).forEach(btn => {
+    const badge = btn.querySelector('.chat-unread-badge');
+    if (badge) {
+      badge.textContent = unreadCount;
+      badge.dataset.count = unreadCount;
+    }
+    
+    if (unreadCount > 0) {
+      btn.classList.add('has-unread');
+    } else {
+      btn.classList.remove('has-unread');
+    }
+  });
 }
 
 function closeChatModal() {
@@ -335,15 +570,142 @@ document.getElementById && document.getElementById('chat-send')?.addEventListene
   const input = document.getElementById('chat-input'); if (!input) return;
   const text = input.value.trim(); if (!text) return;
   const log = document.getElementById('chat-log'); if (!log) return;
-  const user = getCurrentUser(); const time = new Date().toLocaleTimeString('pt-BR');
+  const user = getCurrentUser(); 
+  const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  
+  // Remover estado vazio se existir
+  const emptyState = log.querySelector('.chat-empty-state');
+  if (emptyState) {
+    log.innerHTML = '';
+  }
+  
+  // Adicionar mensagem ao histórico
+  if (activeChatOccId) {
+    if (!chatMessages.has(activeChatOccId)) {
+      chatMessages.set(activeChatOccId, []);
+    }
+    
+    const newMessage = {
+      id: Date.now(),
+      remetente: 'analista',
+      nomeRemetente: user,
+      timestamp: new Date().toISOString(),
+      texto: text,
+      anexos: [],
+      lida: true
+    };
+    
+    chatMessages.get(activeChatOccId).push(newMessage);
+  }
+  
+  // Criar estrutura de mensagem com avatar
   const item = document.createElement('div');
-  item.className = 'chat-item';
-  item.innerHTML = `<div style="margin-bottom:6px"><strong>${escapeHtml(user)}</strong> <small class="muted">${escapeHtml(time)}</small><div>${escapeHtml(text)}</div></div>`;
+  item.className = 'chat-message analista';
+  
+  // Obter iniciais do usuário
+  const initials = user.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  
+  item.innerHTML = `
+    <div class="message-avatar analista">${escapeHtml(initials)}</div>
+    <div class="message-bubble">
+      <div class="message-header">
+        <span class="message-sender">${escapeHtml(user)}</span>
+        <span class="message-time">${escapeHtml(time)}</span>
+      </div>
+      <div class="message-content">${escapeHtml(text)}</div>
+    </div>
+  `;
+  
   log.appendChild(item);
   log.scrollTop = log.scrollHeight;
   input.value = '';
-  // Optionally close the modal or keep open; keep open for conversation
+  input.style.height = '44px'; // Reset height após enviar
+  input.focus(); // Manter foco no campo
+  
+  // Simular resposta da central após 1.5-3s
+  if (activeChatOccId) {
+    simulateIncomingMessage(activeChatOccId);
+  }
 });
+
+// Simular resposta da central
+function simulateIncomingMessage(occId) {
+  setTimeout(() => {
+    const responseMessage = {
+      id: Date.now(),
+      remetente: 'central',
+      nomeRemetente: 'Central de Apoio',
+      timestamp: new Date().toISOString(),
+      texto: 'Recebido. Equipe a caminho do local.',
+      anexos: [],
+      lida: false
+    };
+    
+    if (!chatMessages.has(occId)) {
+      chatMessages.set(occId, []);
+    }
+    chatMessages.get(occId).push(responseMessage);
+    
+    // Se modal está aberto para essa ocorrência
+    if (activeChatOccId === occId) {
+      const log = document.getElementById('chat-log');
+      if (log) {
+        const responseItem = document.createElement('div');
+        responseItem.className = 'chat-message central';
+        const responseTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        responseItem.innerHTML = `
+          <div class="message-avatar central">CT</div>
+          <div class="message-bubble">
+            <div class="message-header">
+              <span class="message-sender">Central de Apoio</span>
+              <span class="message-time">${responseTime}</span>
+            </div>
+            <div class="message-content">${escapeHtml(responseMessage.texto)}</div>
+          </div>
+        `;
+        log.appendChild(responseItem);
+        log.scrollTop = log.scrollHeight;
+      }
+      markMessagesAsRead(occId);
+    } else {
+      // Incrementar contador
+      const currentCount = chatUnreadCounts.get(occId) || 0;
+      chatUnreadCounts.set(occId, currentCount + 1);
+      updateChatBadge(occId);
+      showToastNotification(`Nova mensagem na ocorrência #${occId}`);
+    }
+  }, Math.random() * 1500 + 1500);
+}
+
+// Toast notification
+function showToastNotification(message) {
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.innerHTML = `
+    <div class="toast-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+      </svg>
+    </div>
+    <div class="toast-content">
+      <div class="toast-title">Nova mensagem</div>
+      <div class="toast-message">${escapeHtml(message)}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6 6 18"/>
+        <path d="m6 6 12 12"/>
+      </svg>
+    </button>
+  `;
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOutDown 0.4s ease';
+    setTimeout(() => toast.remove(), 400);
+  }, 5000);
+}
 
 // modal close handlers
 document.addEventListener('click', (e) => {
@@ -462,6 +824,7 @@ function applySearch() {
 }
 
 function init() {
+  initializeChatData();
   initMap();
   wireUI();
   renderRightPanel();
@@ -528,44 +891,48 @@ function renderInfoDrawer() {
 // Diagnostic helper: logs status of lucide replacement and elements
 function checkAffordances() {
   try {
-    // helper to dynamically load script
-    function loadScript(url) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = url;
-        s.async = true;
-        s.onload = () => resolve(s);
-        s.onerror = (err) => reject(err);
-        document.head.appendChild(s);
-      });
-    }
-
     const totalPlaceholders = document.querySelectorAll('i[data-lucide]').length;
-    if (totalPlaceholders === 0) { console.info('[affordance-debug] no lucide placeholders found — nothing to do'); return; }
+    
+    // Se não há placeholders, não há nada a fazer
+    if (totalPlaceholders === 0) { 
+      console.info('[affordance-debug] no lucide placeholders found — nothing to do'); 
+      return; 
+    }
+    
     const svgs = document.querySelectorAll('.icon-affordance svg, .icon-btn svg, i[data-lucide] svg');
     const svgsVisible = Array.from(svgs).filter(s => {
       const r = s.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     }).length;
+    
     console.info('[affordance-debug] placeholders:', totalPlaceholders, 'svgs found:', svgs.length, 'visible svgs:', svgsVisible);
 
-    if (totalPlaceholders > 0 && !window.lucide) {
-      console.warn('[affordance-debug] lucide not found — attempting to load fallback CDN.');
-      loadScript('https://cdn.jsdelivr.net/npm/lucide@0.258.0/dist/lucide.min.js').then(() => {
-        console.info('[affordance-debug] fallback lucide loaded');
-        try { if (window.lucide && typeof window.lucide.replace === 'function') window.lucide.replace(); } catch (err) { console.error('[affordance-debug] lucide.replace() failed after fallback', err); }
-      }).catch(err => {
-        console.error('[affordance-debug] failed to load fallback lucide', err);
-        // soft fallback: convert a few common placeholders to inline SVG so affordances remain visible
-        document.querySelectorAll('i[data-lucide]').forEach(i => {
-          const name = i.dataset.lucide;
-          if (name === 'copy') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-          if (name === 'map') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 7 3 13 6 23 3 23 18 13 21 7 18 1 21 1 6"></polygon><line x1="7" y1="3" x2="7" y2="18"></line></svg>';
-          if (name === 'x') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-        });
+    // Verificar se Lucide já está disponível
+    if (window.lucide && typeof window.lucide.replace === 'function') {
+      try { 
+        window.lucide.replace(); 
+        console.info('[affordance-debug] lucide icons replaced successfully');
+      } catch (err) { 
+        console.error('[affordance-debug] lucide.replace() failed', err); 
+      }
+    } else if (totalPlaceholders > 0) {
+      // Lucide não carregou - usar fallback inline SVG
+      console.warn('[affordance-debug] lucide not loaded, using inline SVG fallback');
+      document.querySelectorAll('i[data-lucide]').forEach(i => {
+        const name = i.dataset.lucide;
+        if (name === 'copy') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+        if (name === 'map') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 7 3 13 6 23 3 23 18 13 21 7 18 1 21 1 6"></polygon><line x1="7" y1="3" x2="7" y2="18"></line></svg>';
+        if (name === 'x') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        if (name === 'user-plus') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>';
+        if (name === 'battery') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"></rect><line x1="23" y1="13" x2="23" y2="11"></line></svg>';
+        if (name === 'wifi') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>';
+        if (name === 'map-pin') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>';
+        if (name === 'shield') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>';
+        if (name === 'message-square') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+        if (name === 'phone-forwarded') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 2 22 6 18 10"></polyline><line x1="14" y1="6" x2="22" y2="6"></line><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+        if (name === 'hash') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>';
+        if (name === 'git-branch') i.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>';
       });
-    } else if (totalPlaceholders > 0 && window.lucide && typeof window.lucide.replace === 'function') {
-      try { window.lucide.replace(); } catch (err) { console.error('[affordance-debug] lucide.replace() failed', err); }
     }
   } catch (e) {
     console.error('[affordance-debug] error checking affordances', e);
