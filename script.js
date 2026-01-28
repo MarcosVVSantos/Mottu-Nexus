@@ -230,6 +230,7 @@ function renderRightPanel() {
       </div>
       
       <!-- Seção de Prévia de Tempo -->
+      ${o.apoio ? `
       <div class="card-eta-section" data-has-previa="${o.apoio?.previa ? 'true' : 'false'}" data-occurrence-id="${o.id}">
         ${o.apoio?.previa ? `
           <div class="eta-display" data-status="${o.apoio.statusChegada || 'aguardando'}">
@@ -272,6 +273,7 @@ function renderRightPanel() {
           </div>
         `}
       </div>
+      ` : ''}
       
       <div class="card-body compact">
         <div class="telemetry-row">
@@ -380,7 +382,9 @@ function renderRightPanel() {
       if (p === currentPlate) c.classList.add('selected'); else c.classList.remove('selected');
     });
   }
-  try { if (window.lucide && typeof window.lucide.replace === 'function') window.lucide.replace(); } catch(e) {}
+  
+  // Substituir ícones Lucide após renderização
+  initLucideIcons();
 }
 
 function openDetailsModal(occ) {
@@ -401,20 +405,20 @@ function openDetailsModal(occ) {
     <div class="item"><strong><i data-lucide="map-pin"></i> GPS</strong><div>${occ.coords.join(', ')}</div></div>
     <div class="item"><strong><i data-lucide="shield"></i> Violação</strong><div>Indefinido</div></div>
   `;
-  try { if (window.lucide && typeof window.lucide.replace === 'function') window.lucide.replace(); } catch(e) {}
+  initLucideIcons();
   // comments
   // editable comments / info adicionais
   document.getElementById('detail-comments').innerHTML = `
     <div class="item"><label class="field"><span><i data-lucide="message-square"></i> Comentários</span><textarea id="detail-comments-input" rows="4" placeholder="Notas do agente">${occ.agentNote || ''}</textarea></label></div>
   `;
-  try { if (window.lucide && typeof window.lucide.replace === 'function') window.lucide.replace(); } catch(e) {}
+  initLucideIcons();
   // questions (placeholder)
   document.getElementById('detail-questions').innerHTML = `
     <div class="item"><strong><i data-lucide="phone-forwarded"></i> 190 foi feito?</strong><div>—</div></div>
     <div class="item"><strong><i data-lucide="hash"></i> Protocolo</strong><div>—</div></div>
     <div class="item"><strong><i data-lucide="git-branch"></i> KM Final</strong><div>—</div></div>
   `;
-  try { if (window.lucide && typeof window.lucide.replace === 'function') window.lucide.replace(); } catch(e) {}
+  initLucideIcons();
   // focus modal
   const save = document.getElementById('detail-save'); if (save) save.focus();
   // wire save to persist editable fields — overwrite any previous handler
@@ -616,6 +620,18 @@ document.getElementById && document.getElementById('support-confirm')?.addEventL
   const val = sel.value;
   if (detailOpenOcc) {
     detailOpenOcc.support = val;
+    
+    // Criar estrutura de apoio se não existir
+    if (val !== 'sem envio de apoio') {
+      const user = getCurrentUser();
+      detailOpenOcc.apoio = {
+        tipo: val,
+        acionadoEm: new Date().toISOString(),
+        acionadoPor: user,
+        statusChegada: 'aguardando'
+      };
+    }
+    
     // append history record with timestamp and user
     if (!detailOpenOcc.supportHistory) detailOpenOcc.supportHistory = [];
     const user = getCurrentUser();
@@ -892,11 +908,29 @@ function init() {
   initMap();
   wireUI();
   renderRightPanel();
-  // Replace any lucide placeholders present on initial load and run diagnostics
-  try {
-    if (window.lucide && typeof window.lucide.replace === 'function') window.lucide.replace();
-  } catch(e) {}
-  checkAffordances();
+  
+  // Aguardar carregamento do Lucide e depois substituir ícones
+  const initLucide = () => {
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      try {
+        window.lucide.createIcons();
+        console.info('[affordance-debug] lucide icons initialized successfully');
+      } catch(e) {
+        console.error('[affordance-debug] lucide.createIcons() failed', e);
+      }
+    } else if (window.lucide && typeof window.lucide.replace === 'function') {
+      try {
+        window.lucide.replace();
+        console.info('[affordance-debug] lucide icons replaced successfully');
+      } catch(e) {
+        console.error('[affordance-debug] lucide.replace() failed', e);
+      }
+    }
+    checkAffordances();
+  };
+  
+  // Tentar inicializar imediatamente e também após um delay
+  setTimeout(initLucide, 100);
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -948,7 +982,7 @@ function renderInfoDrawer() {
   });
 
   // replace lucide placeholders with SVGs
-  try { if (window.lucide && typeof window.lucide.replace === 'function') window.lucide.replace(); } catch(e) {}
+  initLucideIcons();
   checkAffordances();
 }
 
@@ -971,13 +1005,13 @@ function checkAffordances() {
     
     console.info('[affordance-debug] placeholders:', totalPlaceholders, 'svgs found:', svgs.length, 'visible svgs:', svgsVisible);
 
-    // Verificar se Lucide já está disponível
-    if (window.lucide && typeof window.lucide.replace === 'function') {
-      try { 
-        window.lucide.replace(); 
-        console.info('[affordance-debug] lucide icons replaced successfully');
-      } catch (err) { 
-        console.error('[affordance-debug] lucide.replace() failed', err); 
+    // Verificar se Lucide já está disponível e funcionando
+    if (window.lucide && (typeof window.lucide.createIcons === 'function' || typeof window.lucide.replace === 'function')) {
+      const hasLucideIcons = document.querySelectorAll('.lucide').length > 0;
+      if (hasLucideIcons) {
+        console.info('[affordance-debug] lucide icons already rendered');
+      } else {
+        console.info('[affordance-debug] lucide is loaded, icons will be rendered');
       }
     } else if (totalPlaceholders > 0) {
       // Lucide não carregou - usar fallback inline SVG
@@ -1034,6 +1068,21 @@ function handleWhats(e) {
 // SISTEMA DE PRÉVIA - FUNÇÕES PRINCIPAIS
 // ========================================
 
+// Helper para inicializar ícones Lucide
+function initLucideIcons() {
+  try {
+    if (window.lucide) {
+      if (typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      } else if (typeof window.lucide.replace === 'function') {
+        window.lucide.replace();
+      }
+    }
+  } catch(e) {
+    console.error('[lucide] Error initializing icons:', e);
+  }
+}
+
 function formatApoioName(tipo) {
   const nomes = {
     'onsystem': 'OnSystem',
@@ -1046,7 +1095,14 @@ function formatApoioName(tipo) {
 }
 
 function openPreviaModal(occurrenceId, isEdit = false) {
-  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
+  console.log('[prévia] openPreviaModal chamado com ID:', occurrenceId, 'isEdit:', isEdit);
+  
+  // Converter para número se vier como string do HTML
+  const id = typeof occurrenceId === 'string' ? parseInt(occurrenceId) : occurrenceId;
+  console.log('[prévia] ID convertido:', id);
+  
+  const occurrence = occurrences.find(occ => occ.id === id);
+  console.log('[prévia] Ocorrência encontrada:', occurrence);
   
   if (!occurrence) {
     console.error('Ocorrência não encontrada:', occurrenceId);
@@ -1055,6 +1111,7 @@ function openPreviaModal(occurrenceId, isEdit = false) {
   
   // Inicializar apoio se não existir
   if (!occurrence.apoio) {
+    console.log('[prévia] Inicializando apoio');
     occurrence.apoio = {
       tipo: 'sem envio de apoio',
       acionadoEm: new Date().toISOString(),
@@ -1063,6 +1120,13 @@ function openPreviaModal(occurrenceId, isEdit = false) {
   }
   
   const modalOverlay = document.getElementById('modal-previa-overlay');
+  console.log('[prévia] Modal overlay:', modalOverlay);
+  
+  if (!modalOverlay) {
+    console.error('[prévia] Modal overlay não encontrado!');
+    return;
+  }
+  
   const modalTitle = document.getElementById('modal-previa-title');
   const modalPlate = document.getElementById('modal-previa-plate');
   const apoioName = document.getElementById('modal-previa-apoio');
@@ -1098,8 +1162,9 @@ function openPreviaModal(occurrenceId, isEdit = false) {
     updatePreviaPreview();
   }
   
-  modalOverlay.dataset.occurrenceId = occurrenceId;
+  modalOverlay.dataset.occurrenceId = id;
   modalOverlay.classList.add('open');
+  console.log('[prévia] Modal aberto! Classes:', modalOverlay.className);
   
   setTimeout(() => inputTempo?.focus(), 300);
 }
@@ -1155,7 +1220,9 @@ function updatePreviaPreview() {
 }
 
 function salvarPrevia(occurrenceId) {
-  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
+  // Converter para número se vier como string
+  const id = typeof occurrenceId === 'string' ? parseInt(occurrenceId) : occurrenceId;
+  const occurrence = occurrences.find(occ => occ.id === id);
   if (!occurrence) return;
   
   const tempoMinutos = parseInt(document.getElementById('previa-tempo').value);
@@ -1228,8 +1295,22 @@ function formatCountdown(diffMs) {
 }
 
 function updateCardPreviaDisplay(occurrenceId, diffMs, status) {
-  const card = document.querySelector(`[data-occurrence-id="${occurrenceId}"]`)?.closest('.occ-card');
+  const id = typeof occurrenceId === 'string' ? parseInt(occurrenceId) : occurrenceId;
+  const card = document.querySelector(`[data-occurrence-id="${id}"]`)?.closest('.occ-card');
   if (!card) return;
+  
+  const occurrence = occurrences.find(occ => occ.id === id);
+  if (!occurrence) return;
+  
+  // Se chegada foi confirmada, renderizar estado confirmado
+  if (occurrence.apoio.chegada && occurrence.apoio.chegada.confirmada) {
+    const etaSection = card.querySelector('.card-eta-section');
+    if (etaSection) {
+      etaSection.innerHTML = renderEtaConfirmed(occurrence);
+      card.dataset.etaStatus = 'confirmado';
+    }
+    return;
+  }
   
   const etaDisplay = card.querySelector('.eta-display');
   const etaTime = card.querySelector('.eta-time');
@@ -1242,7 +1323,6 @@ function updateCardPreviaDisplay(occurrenceId, diffMs, status) {
   const timeString = formatCountdown(diffMs);
   etaTime.textContent = timeString;
   
-  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
   if (occurrence && occurrence.apoio.previa) {
     const etaUpdated = card.querySelector('.eta-updated');
     if (etaUpdated) {
@@ -1259,6 +1339,9 @@ function updateAllPreviaCountdowns() {
   occurrences.forEach(occurrence => {
     if (!occurrence.apoio || !occurrence.apoio.previa) return;
     
+    // Ignorar se já foi confirmada a chegada
+    if (occurrence.apoio.chegada && occurrence.apoio.chegada.confirmada) return;
+    
     const chegadaEstimada = new Date(occurrence.apoio.previa.chegadaEstimada);
     const diffMs = chegadaEstimada - agora;
     const diffMinutes = Math.floor(diffMs / 60000);
@@ -1266,7 +1349,8 @@ function updateAllPreviaCountdowns() {
     let novoStatus = 'aguardando';
     
     if (diffMs <= 0) {
-      novoStatus = 'atrasado';
+      // Countdown zerou - aguardando confirmação
+      novoStatus = 'aguardando_confirmacao';
     } else if (diffMinutes <= 5) {
       novoStatus = 'urgente';
     } else if (diffMinutes <= 10) {
@@ -1278,10 +1362,37 @@ function updateAllPreviaCountdowns() {
     if (occurrence.apoio.statusChegada !== novoStatus) {
       occurrence.apoio.statusChegada = novoStatus;
       
-      if (novoStatus === 'urgente' && statusAnterior !== 'urgente') {
+      if (novoStatus === 'proximo' && statusAnterior !== 'proximo') {
         showToastNotification(`Apoio chegando em ${diffMinutes} min - ${occurrence.plate}`);
-      } else if (novoStatus === 'atrasado' && statusAnterior !== 'atrasado') {
-        showToastNotification(`Apoio atrasado - ${occurrence.plate}`);
+      } else if (novoStatus === 'urgente' && statusAnterior !== 'urgente') {
+        showToastNotification(`⚠️ URGENTE: Apoio chegando em ${diffMinutes} min - ${occurrence.plate}`);
+      } else if (novoStatus === 'aguardando_confirmacao' && statusAnterior !== 'aguardando_confirmacao') {
+        showToastNotification(`⏱️ Apoio deveria ter chegado - ${occurrence.plate}. Confirme quando chegar.`);
+        
+        // Mostrar botão de confirmação no card
+        const card = document.querySelector(`[data-occurrence-id="${occurrence.id}"]`);
+        const etaSection = card?.querySelector('.card-eta-section');
+        
+        if (etaSection && !etaSection.querySelector('.eta-confirmation-section')) {
+          const confirmSection = document.createElement('div');
+          confirmSection.className = 'eta-confirmation-section';
+          confirmSection.innerHTML = `
+            <button 
+              class="btn-confirmar-chegada" 
+              type="button"
+              data-occurrence-id="${occurrence.id}"
+              title="Confirmar que o apoio chegou ao local"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+              <span class="btn-text">Confirmar Chegada do Apoio</span>
+            </button>
+          `;
+          
+          etaSection.appendChild(confirmSection);
+        }
       }
       
       occurrence.apoio.statusAnterior = novoStatus;
@@ -1373,14 +1484,17 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('click', function(e) {
     const btnDefinir = e.target.closest('.btn-definir-previa');
     if (btnDefinir) {
-      const occurrenceId = btnDefinir.dataset.occurrenceId;
+      console.log('[prévia] Botão definir clicado', btnDefinir);
+      const occurrenceId = parseInt(btnDefinir.dataset.occurrenceId);
+      console.log('[prévia] Occurrence ID:', occurrenceId);
       openPreviaModal(occurrenceId, false);
       return;
     }
     
     const btnEditar = e.target.closest('.btn-editar-previa');
     if (btnEditar) {
-      const occurrenceId = btnEditar.dataset.occurrenceId;
+      console.log('[prévia] Botão editar clicado', btnEditar);
+      const occurrenceId = parseInt(btnEditar.dataset.occurrenceId);
       openPreviaModal(occurrenceId, true);
       return;
     }
@@ -1467,4 +1581,287 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Iniciar countdowns
   startPreviaCountdowns();
+});
+
+// ========================================
+// SISTEMA DE CONFIRMAÇÃO DE CHEGADA
+// ========================================
+
+// Abrir modal de confirmação de chegada
+function openConfirmacaoChegadaModal(occurrenceId) {
+  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
+  if (!occurrence || !occurrence.apoio || !occurrence.apoio.previa) {
+    showToastNotification('Erro ao carregar dados da ocorrência', 'error');
+    return;
+  }
+  
+  // Calcular métricas
+  const agora = new Date();
+  const acionadoEm = new Date(occurrence.apoio.acionadoEm);
+  const chegadaEstimada = new Date(occurrence.apoio.previa.chegadaEstimada);
+  
+  const tempoRealMs = agora - acionadoEm;
+  const tempoRealMinutos = Math.floor(tempoRealMs / 60000);
+  
+  const diferencaMs = agora - chegadaEstimada;
+  const diferencaMinutos = Math.floor(diferencaMs / 60000);
+  
+  // Preencher modal
+  document.getElementById('confirmacao-placa').textContent = occurrence.plate;
+  document.getElementById('confirmacao-apoio').textContent = formatApoioName(occurrence.apoio.tipo);
+  document.getElementById('confirmacao-previa').textContent = `${occurrence.apoio.previa.tempoMinutos} min`;
+  document.getElementById('confirmacao-real').textContent = `${tempoRealMinutos} min`;
+  
+  // Texto da diferença com classe apropriada
+  const diferencaEl = document.getElementById('confirmacao-diferenca');
+  let diferencaTexto = '';
+  let diferencaClass = 'metric-ontime';
+  
+  if (diferencaMinutos > 2) {
+    diferencaTexto = `+${diferencaMinutos} min de atraso`;
+    diferencaClass = 'metric-delay';
+  } else if (diferencaMinutos < -2) {
+    diferencaTexto = `${Math.abs(diferencaMinutos)} min adiantado`;
+    diferencaClass = 'metric-early';
+  } else {
+    diferencaTexto = 'No prazo';
+    diferencaClass = 'metric-ontime';
+  }
+  
+  diferencaEl.textContent = diferencaTexto;
+  diferencaEl.className = `metric-value ${diferencaClass}`;
+  
+  // Limpar observação
+  document.getElementById('confirmacao-observacao').value = '';
+  
+  // Armazenar ID da ocorrência no modal
+  document.getElementById('modal-confirmacao-chegada').dataset.occurrenceId = occurrenceId;
+  
+  // Abrir modal
+  document.getElementById('modal-confirmacao-chegada-overlay').classList.add('open');
+}
+
+// Fechar modal de confirmação
+function closeConfirmacaoChegadaModal() {
+  const overlay = document.getElementById('modal-confirmacao-chegada-overlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+    // Limpar dados após animação
+    setTimeout(() => {
+      document.getElementById('modal-confirmacao-chegada').dataset.occurrenceId = '';
+      document.getElementById('confirmacao-observacao').value = '';
+    }, 300);
+  }
+}
+
+// Confirmar chegada do apoio
+function confirmarChegadaApoio(occurrenceId, observacao) {
+  const occurrence = occurrences.find(occ => occ.id === occurrenceId);
+  if (!occurrence || !occurrence.apoio || !occurrence.apoio.previa) {
+    showToastNotification('Erro: Ocorrência não encontrada', 'error');
+    return;
+  }
+  
+  // ========================================
+  // REGISTRAR CHEGADA
+  // ========================================
+  
+  const agora = new Date();
+  const acionadoEm = new Date(occurrence.apoio.acionadoEm);
+  const chegadaEstimada = new Date(occurrence.apoio.previa.chegadaEstimada);
+  
+  // Calcular tempo real (em minutos)
+  const tempoRealMs = agora - acionadoEm;
+  const tempoRealMinutos = Math.floor(tempoRealMs / 60000);
+  
+  // Calcular diferença vs prévia
+  const diferencaMs = agora - chegadaEstimada;
+  const diferencaMinutos = Math.floor(diferencaMs / 60000);
+  
+  // Determinar status
+  let status = 'no_prazo';
+  if (diferencaMinutos > 2) {
+    status = 'atrasado';
+  } else if (diferencaMinutos < -2) {
+    status = 'adiantado';
+  }
+  
+  // ========================================
+  // SALVAR DADOS DE CHEGADA
+  // ========================================
+  
+  occurrence.apoio.chegada = {
+    confirmada: true,
+    confirmadaEm: agora.toISOString(),
+    confirmadaPor: getCurrentUser(),
+    tempoRealMinutos: tempoRealMinutos,
+    diferencaMinutos: diferencaMinutos,
+    status: status,
+    observacao: observacao || ''
+  };
+  
+  // Atualizar status
+  occurrence.apoio.statusChegada = 'confirmado';
+  
+  // ========================================
+  // ATUALIZAR INTERFACE
+  // ========================================
+  
+  // Re-renderizar cards
+  renderRightPanel();
+  
+  // Notificação de sucesso
+  let mensagem = '';
+  if (status === 'atrasado') {
+    mensagem = `✅ Chegada confirmada (+${diferencaMinutos} min de atraso)`;
+  } else if (status === 'adiantado') {
+    mensagem = `✅ Chegada confirmada (${Math.abs(diferencaMinutos)} min adiantado)`;
+  } else {
+    mensagem = '✅ Chegada confirmada (no prazo)';
+  }
+  
+  showToastNotification(mensagem);
+  
+  // ========================================
+  // LOG MÉTRICA (para relatórios futuros)
+  // ========================================
+  
+  console.log('📊 Métrica de Apoio Registrada:', {
+    occurrenceId: occurrenceId,
+    plate: occurrence.plate,
+    apoioTipo: occurrence.apoio.tipo,
+    previaMinutos: occurrence.apoio.previa.tempoMinutos,
+    realMinutos: tempoRealMinutos,
+    diferencaMinutos: diferencaMinutos,
+    status: status,
+    timestamp: agora.toISOString(),
+    confirmadoPor: getCurrentUser()
+  });
+}
+
+// Renderizar estado confirmado (verde) no card
+function renderEtaConfirmed(occurrence) {
+  if (!occurrence.apoio || !occurrence.apoio.chegada || !occurrence.apoio.previa) {
+    return '';
+  }
+  
+  const chegada = occurrence.apoio.chegada;
+  const previa = occurrence.apoio.previa;
+  
+  const chegadaTime = new Date(chegada.confirmadaEm);
+  const statusClass = chegada.status === 'atrasado' ? 'metric-delay' 
+                    : chegada.status === 'adiantado' ? 'metric-early' 
+                    : 'metric-ontime';
+  
+  const diferencaText = chegada.diferencaMinutos > 0
+    ? `+${chegada.diferencaMinutos} min de atraso`
+    : chegada.diferencaMinutos < 0
+    ? `${Math.abs(chegada.diferencaMinutos)} min adiantado`
+    : 'No prazo';
+  
+  return `
+    <div class="eta-display eta-display-confirmed" data-status="confirmado">
+      <!-- Ícone de sucesso -->
+      <div class="eta-icon eta-icon-success">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      
+      <!-- Informações -->
+      <div class="eta-info">
+        <div class="eta-label eta-label-success">✅ Apoio Chegou</div>
+        <div class="eta-confirmed-info">
+          <div class="confirmed-time">
+            Chegou às ${chegadaTime.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}
+          </div>
+          <div class="confirmed-metrics">
+            <span class="metric ${statusClass}">${diferencaText}</span>
+            <span class="metric-separator">·</span>
+            <span class="metric">Prévia: ${previa.tempoMinutos} min / Real: ${chegada.tempoRealMinutos} min</span>
+          </div>
+        </div>
+        <div class="eta-details">
+          <span class="eta-company">${formatApoioName(occurrence.apoio.tipo)}</span>
+          <span class="eta-separator">·</span>
+          <span class="confirmed-by">Confirmado por ${chegada.confirmadaPor}</span>
+        </div>
+      </div>
+      
+      <!-- Badge de status -->
+      <div class="arrival-status-badge badge-${chegada.status}">
+        ${chegada.diferencaMinutos > 0 ? `+${chegada.diferencaMinutos}` : chegada.diferencaMinutos} min
+      </div>
+    </div>
+  `;
+}
+
+// Event listeners para modal de confirmação
+document.addEventListener('DOMContentLoaded', function() {
+  // Botão fechar modal
+  const btnCloseConfirmacao = document.getElementById('modal-confirmacao-close');
+  if (btnCloseConfirmacao) {
+    btnCloseConfirmacao.addEventListener('click', closeConfirmacaoChegadaModal);
+  }
+  
+  // Botão cancelar
+  const btnCancelarConfirmacao = document.getElementById('btn-cancelar-confirmacao');
+  if (btnCancelarConfirmacao) {
+    btnCancelarConfirmacao.addEventListener('click', closeConfirmacaoChegadaModal);
+  }
+  
+  // Botão confirmar definitivo
+  const btnConfirmarDefinitivo = document.getElementById('btn-confirmar-definitivo');
+  if (btnConfirmarDefinitivo) {
+    btnConfirmarDefinitivo.addEventListener('click', function() {
+      const occurrenceId = parseInt(document.getElementById('modal-confirmacao-chegada').dataset.occurrenceId);
+      const observacao = document.getElementById('confirmacao-observacao').value.trim();
+      
+      if (!occurrenceId) {
+        showToastNotification('Erro: ID da ocorrência não encontrado', 'error');
+        return;
+      }
+      
+      // Confirmar chegada
+      confirmarChegadaApoio(occurrenceId, observacao);
+      
+      // Fechar modal
+      closeConfirmacaoChegadaModal();
+    });
+  }
+  
+  // Fechar modal ao clicar no backdrop
+  const confirmacaoOverlay = document.getElementById('modal-confirmacao-chegada-overlay');
+  if (confirmacaoOverlay) {
+    confirmacaoOverlay.addEventListener('click', function(e) {
+      if (e.target === confirmacaoOverlay) {
+        closeConfirmacaoChegadaModal();
+      }
+    });
+  }
+  
+  // Fechar modal com ESC
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const modalOverlay = document.getElementById('modal-confirmacao-chegada-overlay');
+      if (modalOverlay && modalOverlay.classList.contains('open')) {
+        closeConfirmacaoChegadaModal();
+      }
+    }
+  });
+  
+  // Event delegation para botões de confirmar chegada nos cards
+  document.addEventListener('click', function(e) {
+    const btnConfirmar = e.target.closest('.btn-confirmar-chegada');
+    
+    if (btnConfirmar) {
+      e.preventDefault();
+      const occurrenceId = parseInt(btnConfirmar.dataset.occurrenceId);
+      
+      if (occurrenceId) {
+        openConfirmacaoChegadaModal(occurrenceId);
+      }
+    }
+  });
 });
