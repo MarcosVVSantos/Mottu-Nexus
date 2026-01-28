@@ -2458,6 +2458,32 @@ body {
   line-height: 1.5;
 }
 
+/* Select options */
+.field select option,
+.form-select option,
+.mini-modal select option {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  padding: 12px 16px;
+  font-weight: 500;
+}
+
+.field select option:checked,
+.form-select option:checked,
+.mini-modal select option:checked {
+  background-color: #00D95F !important;
+  background: linear-gradient(135deg, #00D95F 0%, #00FF6E 100%) !important;
+  color: #000000 !important;
+  font-weight: 700;
+}
+
+.field select option:hover,
+.form-select option:hover,
+.mini-modal select option:hover {
+  background-color: rgba(0, 217, 95, 0.25) !important;
+  color: #00FF6E !important;
+}
+
 .occ-col .field textarea {
   width: 100%;
   background: rgba(0, 0, 0, 0.35);
